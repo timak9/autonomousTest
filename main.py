@@ -197,11 +197,11 @@ points = create_random_circuit(100,300,130)
 points, cones_inside, cones_outside = add_cones(points, 10,20)
 
 
-#print(f"{points}\n{cones_inside}\n{cones_outside}\n{len(points)}\n{len(cones_inside)}\n{len(cones_outside)}")
+'''#print(f"{points}\n{cones_inside}\n{cones_outside}\n{len(points)}\n{len(cones_inside)}\n{len(cones_outside)}")
 plt.plot(*zip(*points),'b')
 plt.plot(*zip(*cones_inside), 'g')
 plt.plot(*zip(*cones_outside), 'r')
-plt.show()
+plt.show()'''
 
 
 #to create a sensor, the angle of the vision, the fiability (0 to 1, with 0 is 100% accurate), the direction of the sensor in radian, and the distance it 'see"
