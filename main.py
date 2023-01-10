@@ -46,9 +46,9 @@ def create_random_circuit(minimum,maximum,numbPoints):
         new_points.append((j*xMean,j*yMean))
       oldPoint = i
       new_points.append((i[0], i[1]))
-    print(len(points),len(new_points))
-    print(points)
-    print(new_points)
+    #(len(points),len(new_points))
+    #print(points)
+    #print(new_points)
   else:
     new_points = shape.coords[:]
   return points
@@ -57,7 +57,6 @@ def create_random_circuit(minimum,maximum,numbPoints):
 def add_cones(points, distance,numCones):
   cones_inside = []
   cones_outside = []
-  print("ddd",points)
 
   # parcours des points du circuit
   allx, ally = [x[0] for x in points], [x[1] for x in points]
@@ -178,8 +177,14 @@ def animate(inner_cones, outer_cones, speed, reliability, sensors, path):
     def update(frame):
       object_xy, sensor_detections = next(object_and_sensors)
       object_x, object_y = object_xy[0], object_xy[1]
+      sensorDistanceObject = []
+      for count,sensor in enumerate(sensor_detections):
+        if sensor:
+          sensorDistanceObject.append([math.sqrt((object_x-sensor[0][0])**2 + (object_y-sensor[0][1])**2),math.atan2(object_y - sensor[0][1], object_x - sensor[0][0]),sensor[0][2]])
+        else:
+          sensorDistanceObject.append([]) #the sensor same we get (distance fromthe auto, the alpha and the id of the cone)
 
-      object_scatter.set_offsets((object_x, object_y))
+      object_scatter.set_offsets((object_x, object_y)) #plot the object, here to modify
       for i, sensor_detection in enumerate(sensor_detections):
         sensor_detection_scatters[i].set_data([d[0] for d in sensor_detection], [d[1] for d in sensor_detection])
     anim = FuncAnimation(fig, update, frames=200, repeat=True,init_func=init())
@@ -212,7 +217,9 @@ sensor2 = Sensor(math.radians(90),0.3,math.radians(90),15)
 
 #to create an object, get the list of the cones, the speed, the accuracy of the position, list of sensors, and the path
 #return yield of the position and the cones detected by all the sensor
-test = create_object_and_move(cones_inside, cones_outside,0.01,0,[sensor1,sensor2],points)
+
+
+#test = create_object_and_move(cones_inside, cones_outside,0.01,0,[sensor1,sensor2],points)
 
 
 sensors = [sensor1,sensor2]
