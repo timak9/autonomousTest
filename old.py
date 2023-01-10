@@ -44,7 +44,8 @@ def add_cones(points, distance):
   # tableaux vides qui contiendront les points des cônes
   cones_inside = []
   cones_outside = []
-  # angle de rotation des cônes par rapport au circuit
+
+#plus besoin
   angle = math.pi / 4
   # parcours des points du circuit
   for i in range(len(points)):
@@ -146,8 +147,6 @@ points, cones_inside, cones_outside = add_cones(points, 0.5)
 #plt.plot(*zip(*cones_outside), 'r')
 #plt.show()
 
-
-import pygame
 import math
 
 
