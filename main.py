@@ -4,17 +4,14 @@ import math
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
-
-
-METERINCERTITUDE = 10
-
-
+#function to generate a circle
 def create_random_circle(minimum,maximum):
-  # génération aléatoire du rayon du cercle
   radius = random.uniform(minimum,maximum)
   circle = Point(0, 0).buffer(radius)
   return circle
 
+
+#function to generate an oval DONT WORK
 def create_random_oval(minimum,maximum):
   # génération aléatoire de la longueur et de la largeur de l'ovale
   length = random.uniform(minimum,maximum)
@@ -27,6 +24,8 @@ def create_random_oval(minimum,maximum):
   oval = envelope.intersection(circle)
   return oval
 
+
+#function to generate the circuit, WORK JUST WITH CIRCLE
 def create_random_circuit(minimum,maximum,numbPoints):
   # génération aléatoire d'un cercle ou d'un ovale
   #if random.choice([True, False]):
@@ -46,19 +45,16 @@ def create_random_circuit(minimum,maximum,numbPoints):
         new_points.append((j*xMean,j*yMean))
       oldPoint = i
       new_points.append((i[0], i[1]))
-    #(len(points),len(new_points))
-    #print(points)
-    #print(new_points)
   else:
     new_points = shape.coords[:]
-  return points
+  return new_points
 
-
+#functuion to generate all the cone, get list of points, the distance of the cones (from
+# the middle), and the number of cones
+#return 3 lists, the list of points, list of all the cones outside, and the same for the cones inside
 def add_cones(points, distance,numCones):
   cones_inside = []
   cones_outside = []
-
-  # parcours des points du circuit
   allx, ally = [x[0] for x in points], [x[1] for x in points]
   centerX, centerY = sum(allx)/len(allx),sum(ally)/len(ally)
   allDistance = [math.sqrt((x[0]-centerX)**2 + (x[1]-centerY)**2) for x in points]
@@ -79,7 +75,8 @@ def add_cones(points, distance,numCones):
   return points, cones_inside, cones_outside
 
 
-
+#class sensor, sensor it is the detector of the cones, not the position of the object!
+#get in order: the angle of the view, the fiability, the orientation in radian, and the distance of vision
 class Sensor:
   def __init__(self, field_of_view, reliability, orientation, distance_vision):
     self.field_of_view = field_of_view
@@ -87,6 +84,7 @@ class Sensor:
     self.orientation = orientation
     self.distance_vision = distance_vision
 
+#return the cones detected by the sensor, with random aproximation
   def detect_cones(self, cones, position, car_orientation):
     detect_cones = []
     for i, cone in enumerate(cones):
@@ -101,17 +99,35 @@ class Sensor:
         angle -= 2 * math.pi
 
       if abs(angle) < self.field_of_view / 2 and distance < self.distance_vision:
-        cone_x = (random.random()*2-1)*self.reliability*METERINCERTITUDE + cone[0]
-        cone_y = cone[1] + (random.random()*2-1)*self.reliability*METERINCERTITUDE
+        cone_x = (random.random()*2-1)*self.reliability + cone[0]
+        cone_y = cone[1] + (random.random()*2-1)*self.reliability
         detect_cones.append((cone_x, cone_y, i))
     return detect_cones
 
 
+
+#class detector, is a detector for the position of the object
+#get the fiability of the position, and the fiability of the orientation
+class Detector:
+  def __init__(self,reliabilityPos,reliabilityOri):
+    self.reliabilityPos = reliabilityPos
+    self.reliabilityOri = reliabilityOri
+
+
+#return the position and the orientation detected by the detector (with "error")
+  def position(self,objectposition,orientation):
+    detectorPositionX = (random.random()*2-1) * self.reliabilityPos + objectposition[0]
+    detectorPositionY = (random.random() * 2 - 1) * self.reliabilityPos + objectposition[1]
+    detectorOrientation = (random.random() * 2 - 1) * self.reliabilityOri + orientation
+    return (detectorPositionX,detectorPositionY,detectorOrientation)
+
+
 class Object:
-  def __init__(self, path, speed, reliability, sensors):
+  def __init__(self, path, speed, reliability, detectors, sensors):
     self.speed = speed
     self.reliability = reliability
     self.sensors = sensors
+    self.detectors = detectors
     self.path = path
     self.path_index = 0
     self.position = path[0]
@@ -134,22 +150,28 @@ class Object:
       sensor.detect_cones(inner_cones + outer_cones, self.position, self.orientation)
 
 
-def create_object_and_move(inner_cones, outer_cones, speed, reliability, sensors, path):
-  object = Object(path, speed, reliability, sensors)
+
+
+
+def create_object_and_move(inner_cones, outer_cones, speed, reliability,detectors, sensors, path):
+  object = Object(path, speed, reliability, detectors, sensors)
   while True:
     object.move(inner_cones, outer_cones)
-    object_x = object.position[0] + (random.random()*2-1)*METERINCERTITUDE * object.reliability
-    object_y = object.position[1] + (random.random()*2-1)*METERINCERTITUDE * object.reliability
+    #object_x = object.position[0] + (random.random()*2-1) * object.reliability
+    #object_y = object.position[1] + (random.random()*2-1) * object.reliability
+    coordonateDetector = [[] for _ in range(len(detectors))]
     detected_cones = [[] for _ in range(len(sensors))]
+    for count, detector in enumerate(detectors):
+      coordonateDetector[count] = detector.position(object.position,object.orientation)
     for i, sensor in enumerate(sensors):
       detected_cones[i] = sensor.detect_cones(inner_cones + outer_cones, object.position, object.orientation)
-    yield (object_x, object_y), detected_cones
+    yield [[object.position[0],object.position[1],object.orientation],coordonateDetector, detected_cones]
 
 
 
 
-def animate(inner_cones, outer_cones, speed, reliability, sensors, path):
-    object_and_sensors = create_object_and_move(inner_cones, outer_cones, speed, reliability, sensors, path)
+def animate(inner_cones, outer_cones, speed, reliability, detectors, sensors, path):
+    object_and_sensors = create_object_and_move(inner_cones, outer_cones, speed, reliability, detectors, sensors, path)
     fig, ax = plt.subplots()
     ax.set_xlim(min([x[0] for x in outer_cones])*1.1, max([x[0] for x in outer_cones])*1.1)
     ax.set_ylim(min([x[1] for x in outer_cones])*1.1, max([x[1] for x in outer_cones])*1.1)
@@ -164,29 +186,45 @@ def animate(inner_cones, outer_cones, speed, reliability, sensors, path):
     object_scatter = ax.scatter([], [], c='b')
     sensor_detection_scatters = []
     for i in range(len(sensors)):
-        scatter, = ax.plot([], [], 'o', c='m', alpha=0.5)
+        scatter, = ax.plot([], [], 'o', c='purple', alpha=0.7)
         sensor_detection_scatters.append(scatter)
 
+    detectors_scatters = []
+    for i in range(len(detectors)):
+      scatter2, = ax.plot([], [], 'o', c='cyan', alpha=0.8)
+      detectors_scatters.append(scatter2)
+
     def init():
-      object_xy, sensor_detections = next(object_and_sensors)
+      object_xy, detectors_detections, sensor_detections = next(object_and_sensors)
       object_x, object_y = object_xy[0],object_xy[1]
       object_scatter.set_offsets((object_x, object_y))
+
+      for i, detector_detection in enumerate(detectors_detections):
+        detectors_scatters[i].set_data(detector_detection[0], detector_detection[1])
+
       for i, sensor_detection in enumerate(sensor_detections):
         sensor_detection_scatters[i].set_data([d[0] for d in sensor_detection], [d[1] for d in sensor_detection])
 
     def update(frame):
-      object_xy, sensor_detections = next(object_and_sensors)
-      object_x, object_y = object_xy[0], object_xy[1]
+      object_xy, detectors_detections, sensor_detections = next(object_and_sensors)
+      object_x, object_y = object_xy[0], object_xy[1] # cicle blue
+
+
       sensorDistanceObject = []
       for count,sensor in enumerate(sensor_detections):
         if sensor:
-          sensorDistanceObject.append([math.sqrt((object_x-sensor[0][0])**2 + (object_y-sensor[0][1])**2),math.atan2(object_y - sensor[0][1], object_x - sensor[0][0]),sensor[0][2]])
+          sensorDistanceObject.append([math.sqrt((-sensor[0][0])**2 + (object_y-sensor[0][1])**2),math.atan2(object_y - sensor[0][1], object_x - sensor[0][0]),sensor[0][2]])
         else:
           sensorDistanceObject.append([]) #the sensor same we get (distance fromthe auto, the alpha and the id of the cone)
 
       object_scatter.set_offsets((object_x, object_y)) #plot the object, here to modify
+
+      for i, detector_detection in enumerate(detectors_detections):
+        detectors_scatters[i].set_data(detector_detection[0], detector_detection[1])
+
       for i, sensor_detection in enumerate(sensor_detections):
         sensor_detection_scatters[i].set_data([d[0] for d in sensor_detection], [d[1] for d in sensor_detection])
+
     anim = FuncAnimation(fig, update, frames=200, repeat=True,init_func=init())
     plt.show()
 
@@ -198,33 +236,32 @@ def animate(inner_cones, outer_cones, speed, reliability, sensors, path):
 #points = lenths minimum, lenght maximum, number of "points" of the circuit (more we have, more HD it is)
 #points, cones_inside,cones_outside = points,distance of the cones to right/left, numberofCones
 
-points = create_random_circuit(100,300,130)
-points, cones_inside, cones_outside = add_cones(points, 10,20)
+points = create_random_circuit(20,80,130)
+points, cones_inside, cones_outside = add_cones(points, 2.5,20)
 
 
-'''#print(f"{points}\n{cones_inside}\n{cones_outside}\n{len(points)}\n{len(cones_inside)}\n{len(cones_outside)}")
-plt.plot(*zip(*points),'b')
-plt.plot(*zip(*cones_inside), 'g')
-plt.plot(*zip(*cones_outside), 'r')
-plt.show()'''
-
-
-#to create a sensor, the angle of the vision, the fiability (0 to 1, with 0 is 100% accurate), the direction of the sensor in radian, and the distance it 'see"
+#to create a sensor, the angle of the vision, the fiability (number of meter or radian of potential error),
+# the direction of the sensor in radian, and the distance it 'see"
 
 sensor1 = Sensor(math.radians(90),0.3,math.radians(270),15)
 sensor2 = Sensor(math.radians(90),0.3,math.radians(90),15)
 
 
-#to create an object, get the list of the cones, the speed, the accuracy of the position, list of sensors, and the path
-#return yield of the position and the cones detected by all the sensor
 
 
-#test = create_object_and_move(cones_inside, cones_outside,0.01,0,[sensor1,sensor2],points)
+
+#to create a detector, fiability of the position and fiability of the orientation
+# (number of meter or radian of potential error),
+detector1 = Detector(1,0.5)
+detector2 = Detector(2,0.2)
+
 
 
 sensors = [sensor1,sensor2]
-speed = 10
+detectors = [detector1,detector2]
+speed = 1
 reliability = 0.1
-animate(cones_inside, cones_outside, speed, reliability, sensors, points)
 
-#animate(cones_inside, cones_outside,0.1,0,[sensor1,sensor2],points)
+#to create an object, get the list of the cones, the speed, the accuracy of the position, list of sensors, and the path
+#return yield of the position and the cones detected by all the sensor
+animate(cones_inside, cones_outside, speed, reliability, detectors, sensors, points)
