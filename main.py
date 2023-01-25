@@ -1,4 +1,4 @@
-from shapely.geometry import Polygon,LineString, Point, LinearRing
+from shapely.geometry import Polygon,LineString, Point,LinearRing
 import random
 import math
 import matplotlib.pyplot as plt
@@ -123,7 +123,7 @@ class Detector:
 
 
 class Object:
-  def __init__(self, path, speed, reliability, detectors, sensors):
+  def __init__(self, path, speed, reliability, detectors, sensors, dt):
     self.speed = speed
     self.reliability = reliability
     self.sensors = sensors
@@ -131,6 +131,8 @@ class Object:
     self.path = path
     self.path_index = 0
     self.position = path[0]
+    self.dt = dt
+
     dx = self.path[self.path_index][0] - self.path[self.path_index - 1][0]
     dy = self.path[self.path_index][1] - self.path[self.path_index - 1][1]
     self.orientation = math.atan2(dy, dx)
@@ -139,13 +141,17 @@ class Object:
     self.path_index += 1
     if self.path_index == len(self.path):
       self.path_index = 0
-    self.position = self.path[self.path_index]
     dx = self.path[self.path_index][0] - self.path[self.path_index - 1][0]
     dy = self.path[self.path_index][1] - self.path[self.path_index - 1][1]
+    self.position = self.path[self.path_index]
     self.orientation = math.atan2(dy, dx)
+    return (dx**2+dy**2)**(1/2)
 
   def move(self, inner_cones, outer_cones):
-    self.follow_path()
+    distance = self.speed * self.dt
+    travel = 0
+    while (travel<distance):
+      travel += self.follow_path()
     for sensor in self.sensors:
       sensor.detect_cones(inner_cones + outer_cones, self.position, self.orientation)
 
@@ -153,8 +159,8 @@ class Object:
 
 
 
-def create_object_and_move(inner_cones, outer_cones, speed,detectors, sensors, path):
-  object = Object(path, speed, reliability, detectors, sensors)
+def create_object_and_move(inner_cones, outer_cones, speed,detectors, sensors, path, dt):
+  object = Object(path, speed, reliability, detectors, sensors, dt)
   while True:
     object.move(inner_cones, outer_cones)
     coordonateDetector = [[] for _ in range(len(detectors))]
@@ -168,10 +174,10 @@ def create_object_and_move(inner_cones, outer_cones, speed,detectors, sensors, p
 
 
 
-def animate(inner_cones, outer_cones, speed, detectors, sensors, path):
+def animate(inner_cones, outer_cones, speed, detectors, sensors, path, dt):
     diffPosdetec = []
 
-    object_and_sensors = create_object_and_move(inner_cones, outer_cones, speed, detectors, sensors, path)
+    object_and_sensors = create_object_and_move(inner_cones, outer_cones, speed, detectors, sensors, path, dt)
 
     fig, ax = plt.subplots()
     ax.set_xlim(min([x[0] for x in outer_cones])*1.1, max([x[0] for x in outer_cones])*1.1)
@@ -273,9 +279,10 @@ detector2 = Detector(5,math.radians(10))
 
 sensors = [sensor1,sensor2]
 detectors = [detector1,detector2]
-speed = 1
+speed = 100
 reliability = 0.1
+dt = 0.1
 
 #to create an object, get the list of the cones, the speed, the accuracy of the position, list of sensors, and the path
 #return yield of the position and the cones detected by all the sensor
-animate(cones_inside, cones_outside, speed, detectors, sensors, points)
+animate(cones_inside, cones_outside, speed, detectors, sensors, points, dt)
