@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Fast SLAM covariance
-Q = np.diag([3.0, np.deg2rad(10.0)]) ** 2
+Q = [np.diag([3.0, np.deg2rad(10.0)]) ** 2]
 R = np.diag([1.0, np.deg2rad(20.0)]) ** 2
 
 #  Simulation parameter
@@ -36,14 +36,13 @@ class Particle:
         self.lm = np.zeros((N_LM, LM_SIZE))
         # landmark position covariance
         self.lmP = np.zeros((N_LM * LM_SIZE, LM_SIZE))
-        #nous on a pas x et y pour le landmark mais r et theta
         #np.eyes cest une matrice de 3x3 1 dans les diagonal et 0 reste
 
 
 def fast_slam2(particles, u, z):
     particles = predict_particles(particles, u)
-
-    particles = update_with_observation(particles, z)
+    for i in range(len(Q)):
+        particles = update_with_observation(particles, z[i],i)
 
     particles = resampling(particles)
 
@@ -86,7 +85,7 @@ def predict_particles(particles, u):
         px[0, 0] = particles[i].x
         px[1, 0] = particles[i].y
         px[2, 0] = particles[i].yaw
-        ud = u + (np.random.randn(1, 2) @ R ** 0.5).T  # add noise
+        ud = u + (np.random.randn(1, 2) @ R ** 0.5).T  # add noise #need to change to editable random
         px = motion_model(px, ud)
         particles[i].x = px[0, 0]
         particles[i].y = px[1, 0]
@@ -155,7 +154,7 @@ def update_kf_with_cholesky(xf, Pf, v, Q_cov, Hf):
     return x, P
 
 
-def update_landmark(particle, z, Q_cov):
+def update_landmark(particle, z, Q_cov,id):
     lm_id = int(z[2])
     xf = np.array(particle.lm[lm_id, :]).reshape(2, 1)
     Pf = np.array(particle.lmP[2 * lm_id:2 * lm_id + 2])
@@ -165,7 +164,7 @@ def update_landmark(particle, z, Q_cov):
     dz = z[0:2].reshape(2, 1) - zp
     dz[1, 0] = pi_2_pi(dz[1, 0])
 
-    xf, Pf = update_kf_with_cholesky(xf, Pf, dz, Q, Hf)
+    xf, Pf = update_kf_with_cholesky(xf, Pf, dz, Q[id], Hf)
 
     particle.lm[lm_id, :] = xf.T
     particle.lmP[2 * lm_id:2 * lm_id + 2, :] = Pf
@@ -220,21 +219,21 @@ def proposal_sampling(particle, z, Q_cov):
     return particle
 
 
-def update_with_observation(particles, z):
+def update_with_observation(particles, z, id):
     for iz in range(len(z[0, :])):
         landmark_id = int(z[2, iz])
 
         for ip in range(N_PARTICLE):
             # new landmark
             if abs(particles[ip].lm[landmark_id, 0]) <= 0.01:
-                particles[ip] = add_new_lm(particles[ip], z[:, iz], Q)
+                particles[ip] = add_new_lm(particles[ip], z[:, iz], Q[id])
             # known landmark
             else:
-                w = compute_weight(particles[ip], z[:, iz], Q)
+                w = compute_weight(particles[ip], z[:, iz],  Q[id])
                 particles[ip].w *= w
 
-                particles[ip] = update_landmark(particles[ip], z[:, iz], Q)
-                particles[ip] = proposal_sampling(particles[ip], z[:, iz], Q)
+                particles[ip] = update_landmark(particles[ip], z[:, iz],  Q[id],id)
+                particles[ip] = proposal_sampling(particles[ip], z[:, iz],  Q[id])
 
     return particles
 
