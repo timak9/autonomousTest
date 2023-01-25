@@ -3,6 +3,8 @@ import random
 import math
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+import FastSlam
+
 
 #function to generate a circle
 def create_random_circle(minimum,maximum):
@@ -132,6 +134,7 @@ class Object:
     self.path_index = 0
     self.position = path[0]
     self.dt = dt
+    self.yaw_rate = 0
 
     dx = self.path[self.path_index][0] - self.path[self.path_index - 1][0]
     dy = self.path[self.path_index][1] - self.path[self.path_index - 1][1]
@@ -148,10 +151,12 @@ class Object:
     return (dx**2+dy**2)**(1/2)
 
   def move(self, inner_cones, outer_cones):
+    pastAngle = self.orientation
     distance = self.speed * self.dt
     travel = 0
     while (travel<distance):
       travel += self.follow_path()
+    self.yaw_rate = (self.orientation - pastAngle)/self.dt
     for sensor in self.sensors:
       sensor.detect_cones(inner_cones + outer_cones, self.position, self.orientation)
 
@@ -169,7 +174,7 @@ def create_object_and_move(inner_cones, outer_cones, speed,detectors, sensors, p
       coordonateDetector[count] = detector.position(object.position,object.orientation)
     for i, sensor in enumerate(sensors):
       detected_cones[i] = sensor.detect_cones(inner_cones + outer_cones, object.position, object.orientation)
-    yield [[object.position[0],object.position[1],object.orientation],coordonateDetector, detected_cones]
+    yield [[object.position[0],object.position[1],object.orientation],coordonateDetector, detected_cones,object]
 
 
 
@@ -204,7 +209,7 @@ def animate(inner_cones, outer_cones, speed, detectors, sensors, path, dt):
     def init():
 
 
-      object_xy, detectors_detections, sensor_detections = next(object_and_sensors)
+      object_xy, detectors_detections, sensor_detections,object = next(object_and_sensors)
       object_x, object_y = object_xy[0],object_xy[1]
       object_scatter.set_offsets((object_x, object_y))
 
@@ -219,10 +224,13 @@ def animate(inner_cones, outer_cones, speed, detectors, sensors, path, dt):
     def update(frame):
 
 
-      object_xy, detectors_detections, sensor_detections = next(object_and_sensors)
-      object_x, object_y = object_xy[0], object_xy[1] # cicle blue
+      object_xy, detectors_detections, sensor_detections,object = next(object_and_sensors)
+      x_Est = FastSlam.fastslam(numCones,sensor_detections,[object.speed,object.yaw_rate],FastSlam.xEst,FastSlam.particles)
+      object_x, object_y = x_Est[0][0], x_Est[1][0] # cicle blue
 
 
+      x_Est = FastSlam.fastslam(numCones,sensor_detections,[object.speed,object.yaw_rate],FastSlam.xEst,FastSlam.particles)
+      print(x_Est)
 
 
 
@@ -255,9 +263,9 @@ def animate(inner_cones, outer_cones, speed, detectors, sensors, path, dt):
 
 #points = lenths minimum, lenght maximum, number of "points" of the circuit (more we have, more HD it is)
 #points, cones_inside,cones_outside = points,distance of the cones to right/left, numberofCones
-
+numCones = 20
 points = create_random_circuit(20,80,130)
-points, cones_inside, cones_outside = add_cones(points, 2.5 ,20)
+points, cones_inside, cones_outside = add_cones(points, 2.5 ,numCones)
 
 
 #to create a sensor, the angle of the vision, the fiability (number of meter or radian of potential error),

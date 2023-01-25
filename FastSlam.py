@@ -3,6 +3,7 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 # Fast SLAM covariance
 Q = [np.diag([3.0, np.deg2rad(10.0)]) ** 2]
 R = np.diag([1.0, np.deg2rad(20.0)]) ** 2
@@ -14,12 +15,14 @@ OFFSET_YAW_RATE_NOISE = 0.01
 
 DT = 0.1  # time tick [s]
 SIM_TIME = 10.0  # simulation time [s]
-MAX_RANGE = 20.0  # maximum observation range
+MAX_RANGE = 10.0  # maximum observation range
 M_DIST_TH = 2.0  # Threshold of Mahalanobis distance for data association.
 STATE_SIZE = 3  # State size [x,y,yaw]
 LM_SIZE = 2  # LM state size [x,y]
 N_PARTICLE = 100  # number of particle
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
+
+INITIALISE = False
 
 show_animation = False
 
@@ -219,20 +222,20 @@ def proposal_sampling(particle, z, Q_cov):
 
 
 def update_with_observation(particles, z, id):
-    for iz in range(len(z[0, :])):
-        landmark_id = int(z[2, iz])
+    for iz in range(len(z)):
+        landmark_id = int(z[iz][2])
 
         for ip in range(N_PARTICLE):
             # new landmark
             if abs(particles[ip].lm[landmark_id, 0]) <= 0.01:
-                particles[ip] = add_new_lm(particles[ip], z[:, iz], Q[id])
+                particles[ip] = add_new_lm(particles[ip], z[iz], Q[id])
             # known landmark
             else:
-                w = compute_weight(particles[ip], z[:, iz],  Q[id])
+                w = compute_weight(particles[ip], z[iz],  Q[id])
                 particles[ip].w *= w
 
-                particles[ip] = update_landmark(particles[ip], z[:, iz],  Q[id],id)
-                particles[ip] = proposal_sampling(particles[ip], z[:, iz],  Q[id])
+                particles[ip] = update_landmark(particles[ip], z[iz],  Q[id],id)
+                particles[ip] = proposal_sampling(particles[ip], z[iz],  Q[id])
 
     return particles
 
@@ -341,44 +344,16 @@ def pi_2_pi(angle):
     return (angle + math.pi) % (2 * math.pi) - math.pi
 
 
-def fastslam(n_landmark,z,):
-    time = 0.0
-    # State Vector [x y yaw v]'
-    xEst = np.zeros((STATE_SIZE, 1))  # SLAM estimation
-    xTrue = np.zeros((STATE_SIZE, 1))  # True state
-    xDR = np.zeros((STATE_SIZE, 1))  # Dead reckoning
+n_landmark = 40
+xEst = np.zeros((STATE_SIZE, 1))  # SLAM estimation
+particles = [Particle(n_landmark) for _ in range(N_PARTICLE)]
 
-    # history
-    hxEst = xEst
-    hxTrue = xTrue
-    hxDR = xTrue
 
-    particles = [Particle(n_landmark) for _ in range(N_PARTICLE)]
 
-    while SIM_TIME >= time:
-        time += DT
-        u = calc_input(time)
-
-        xTrue, z, xDR, ud = observation(xTrue, xDR, u, RFID)
-        # z cest la position observer donc avec des erreurs,
-        '''xTrue : Il s'agit de la position réelle du robot dans l'environnement, c'est-à-dire sa position x, y et son orientation yaw.
-
-z : Il s'agit des observations du robot, c'est-à-dire les distances et les angles par rapport aux repères RFID (Radio Frequency Identification) dans l'environnement.
-
-xDR : Il s'agit de la position dérivée du robot, c'est-à-dire la position x, y et l'orientation yaw calculées en utilisant les commandes de mouvement (u) et le modèle de mouvement différentiel.
-
-ud : Il s'agit des commandes de mouvement réelles du robot, qui incluent les commandes de mouvement (u) et le bruit ajouté pour simuler les erreurs dans les mouvements réels du robot.'''
-
-        particles = fast_slam2(particles, ud, z)
-
-        xEst = calc_final_state(particles)
-
-        x_state = xEst[0: STATE_SIZE]
-
-        # store data history
-        hxEst = np.hstack((hxEst, x_state))
-        hxDR = np.hstack((hxDR, xDR))
-        hxTrue = np.hstack((hxTrue, xTrue))
+def fastslam(n_landmark,z,ud,xEst,particles):
+    particles = fast_slam2(particles, ud, z)
+    xEst = calc_final_state(particles)
+    return xEst
 
 
 
@@ -416,6 +391,7 @@ def main():
         u = calc_input(time)
 
         xTrue, z, xDR, ud = observation(xTrue, xDR, u, RFID)
+        print(z)
         #z cest la position observer donc avec des erreurs,
         '''xTrue : Il s'agit de la position réelle du robot dans l'environnement, c'est-à-dire sa position x, y et son orientation yaw.
 
