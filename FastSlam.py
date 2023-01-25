@@ -296,7 +296,7 @@ def observation(xTrue, xd, u, RFID):
     xTrue = motion_model(xTrue, u)
 
     # add noise to range observation
-    z = np.zeros((3, 0))
+    z = np.zeros((3, 0)) # z = [r,theta,id]
 
     for i in range(len(RFID[:, 0])):
 
@@ -319,7 +319,7 @@ def observation(xTrue, xd, u, RFID):
 
     xd = motion_model(xd, ud)
 
-    return xTrue, z, xd, ud
+    return xTrue, [z], xd, ud
 
 
 def motion_model(x, u):
@@ -420,7 +420,7 @@ ud : Il s'agit des commandes de mouvement réelles du robot, qui incluent les co
             plt.axis("equal")
             plt.grid(True)
             plt.pause(0.001)
-    print(f"hxTrue: {hxTrue}\n hxest: {hxEst}")
+    #print(f"hxTrue: {hxTrue}\n hxest: {hxEst}")
 
 if __name__ == '__main__':
     main()
