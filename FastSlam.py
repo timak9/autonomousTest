@@ -43,7 +43,6 @@ def fast_slam2(particles, u, z):
     particles = predict_particles(particles, u)
     for i in range(len(Q)):
         particles = update_with_observation(particles, z[i],i)
-
     particles = resampling(particles)
 
     return particles
@@ -340,6 +339,47 @@ def motion_model(x, u):
 
 def pi_2_pi(angle):
     return (angle + math.pi) % (2 * math.pi) - math.pi
+
+
+def fastslam(n_landmark,z,):
+    time = 0.0
+    # State Vector [x y yaw v]'
+    xEst = np.zeros((STATE_SIZE, 1))  # SLAM estimation
+    xTrue = np.zeros((STATE_SIZE, 1))  # True state
+    xDR = np.zeros((STATE_SIZE, 1))  # Dead reckoning
+
+    # history
+    hxEst = xEst
+    hxTrue = xTrue
+    hxDR = xTrue
+
+    particles = [Particle(n_landmark) for _ in range(N_PARTICLE)]
+
+    while SIM_TIME >= time:
+        time += DT
+        u = calc_input(time)
+
+        xTrue, z, xDR, ud = observation(xTrue, xDR, u, RFID)
+        # z cest la position observer donc avec des erreurs,
+        '''xTrue : Il s'agit de la position réelle du robot dans l'environnement, c'est-à-dire sa position x, y et son orientation yaw.
+
+z : Il s'agit des observations du robot, c'est-à-dire les distances et les angles par rapport aux repères RFID (Radio Frequency Identification) dans l'environnement.
+
+xDR : Il s'agit de la position dérivée du robot, c'est-à-dire la position x, y et l'orientation yaw calculées en utilisant les commandes de mouvement (u) et le modèle de mouvement différentiel.
+
+ud : Il s'agit des commandes de mouvement réelles du robot, qui incluent les commandes de mouvement (u) et le bruit ajouté pour simuler les erreurs dans les mouvements réels du robot.'''
+
+        particles = fast_slam2(particles, ud, z)
+
+        xEst = calc_final_state(particles)
+
+        x_state = xEst[0: STATE_SIZE]
+
+        # store data history
+        hxEst = np.hstack((hxEst, x_state))
+        hxDR = np.hstack((hxDR, xDR))
+        hxTrue = np.hstack((hxTrue, xTrue))
+
 
 
 def main():
