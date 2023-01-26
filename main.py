@@ -225,12 +225,10 @@ def animate(inner_cones, outer_cones, speed, detectors, sensors, path, dt):
 
 
       object_xy, detectors_detections, sensor_detections,object = next(object_and_sensors)
-      x_Est = FastSlam.fastslam(numCones,sensor_detections,[object.speed,object.yaw_rate],FastSlam.xEst,FastSlam.particles)
+      print("true: ",sensor_detections)
+      x_Est = FastSlam.fastslam(numCones,sensor_detections,[object.speed,object.yaw_rate],FastSlam.particles)
       object_x, object_y = x_Est[0][0], x_Est[1][0] # cicle blue
-
-
-      x_Est = FastSlam.fastslam(numCones,sensor_detections,[object.speed,object.yaw_rate],FastSlam.xEst,FastSlam.particles)
-      print(x_Est)
+      #print(x_Est)
 
 
 

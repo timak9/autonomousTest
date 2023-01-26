@@ -5,8 +5,8 @@ import numpy as np
 
 
 # Fast SLAM covariance
-Q = [np.diag([3.0, np.deg2rad(10.0)]) ** 2]
-R = np.diag([1.0, np.deg2rad(20.0)]) ** 2
+Q = [np.diag([0.1, np.deg2rad(1.0)]) ** 2]
+R = np.diag([0.1, np.deg2rad(0.1)]) ** 2
 
 #  Simulation parameter
 Q_sim = np.diag([0.3, np.deg2rad(2.0)]) ** 2
@@ -222,15 +222,20 @@ def proposal_sampling(particle, z, Q_cov):
 
 
 def update_with_observation(particles, z, id):
+    print("range = ",len(z),z)
     for iz in range(len(z)):
         landmark_id = int(z[iz][2])
+        print("dans le for",landmark_id)
 
         for ip in range(N_PARTICLE):
             # new landmark
+            if(ip == 0):
+                print(landmark_id)
             if abs(particles[ip].lm[landmark_id, 0]) <= 0.01:
                 particles[ip] = add_new_lm(particles[ip], z[iz], Q[id])
             # known landmark
             else:
+                z[iz] = np.array(z[iz])
                 w = compute_weight(particles[ip], z[iz],  Q[id])
                 particles[ip].w *= w
 
@@ -345,13 +350,14 @@ def pi_2_pi(angle):
 
 
 n_landmark = 40
-xEst = np.zeros((STATE_SIZE, 1))  # SLAM estimation
+#xEst = np.zeros((STATE_SIZE, 1))  # SLAM estimation
 particles = [Particle(n_landmark) for _ in range(N_PARTICLE)]
 
 
-
-def fastslam(n_landmark,z,ud,xEst,particles):
+def fastslam(n_landmark,z,ud,particles):
+    print(particles[0].lm)
     particles = fast_slam2(particles, ud, z)
+    print(particles[0].lm)
     xEst = calc_final_state(particles)
     return xEst
 
