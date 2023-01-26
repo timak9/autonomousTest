@@ -44,7 +44,7 @@ class Particle:
 
 def fast_slam2(particles, u, z):
     particles = predict_particles(particles, u)
-    print(particles[0].x,particles[0].y,particles[0].yaw)
+    # a remettre print(particles[0].x,particles[0].y,particles[0].yaw)
     #for i in range(len(Q)):
     #    particles = update_with_observation(particles, z[i],i)
     particles = resampling(particles)
@@ -83,6 +83,7 @@ def calc_final_state(particles):
 
 
 def predict_particles(particles, u):
+    print("u==",u)
     for i in range(N_PARTICLE):
         px = np.zeros((STATE_SIZE, 1))
         px[0, 0] = particles[i].x
@@ -93,6 +94,7 @@ def predict_particles(particles, u):
         particles[i].x = px[0, 0]
         particles[i].y = px[1, 0]
         particles[i].yaw = px[2, 0]
+    print("partiles :",particles[0].x,particles[0].y)
 
     return particles
 

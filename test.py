@@ -1,5 +1,7 @@
 import random
 import numpy as np
 
-z = np.zeros((3, 10))
-print(z)
+
+a= np.cos(-2.405281875404687+ 2.0125827937059615)*104.63109228376135*0.1
+
+print(15.03077425874306-a)

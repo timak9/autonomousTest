@@ -136,6 +136,7 @@ class Object:
     self.position = path[0]
     self.dt = dt
     self.yaw_rate = 0
+    self.last = [0,0,0]
 
     dx = self.path[self.path_index][0] - self.path[self.path_index - 1][0]
     dy = self.path[self.path_index][1] - self.path[self.path_index - 1][1]
@@ -152,17 +153,29 @@ class Object:
     return (dx**2+dy**2)**(1/2)
 
   def move(self, inner_cones, outer_cones):
+    self.last = list(self.position[:])+[self.orientation]
+    pastAngle = self.orientation
+    travel = self.follow_path()
+    self.yaw_rate = (self.orientation-self.last[2])/self.dt
+    self.realspeed = travel/self.dt
+    for sensor in self.sensors:
+      sensor.detect_cones(inner_cones + outer_cones, self.position, self.orientation)
+
+
+  def oldmove(self, inner_cones, outer_cones):
+    self.last = list(self.position[:])+[self.orientation]
     pastAngle = self.orientation
     distance = self.speed * self.dt
     travel = 0
     while (travel<distance):
       travel += self.follow_path()
       pastAngle+=self.orientation
-    self.yaw_rate = (pastAngle)/self.dt
-    self.realspeed = travel/self.dt
+    dx = self.position[0] - self.last[0]
+    dy = self.position[1] - self.last[1]
+    self.yaw_rate = (math.atan2(dy, dx)/self.dt + math.pi) % (2 * math.pi) - math.pi
+    self.realspeed = (dx**2+dy**2)**(1/2)/self.dt
     for sensor in self.sensors:
       sensor.detect_cones(inner_cones + outer_cones, self.position, self.orientation)
-
 
 
 
@@ -229,11 +242,13 @@ def animate(inner_cones, outer_cones, speed, detectors, sensors, path, dt):
       for i, sensor_detection in enumerate(sensor_detections):
         sensor_detection_scatters[i].set_data([d[0] for d in sensor_detection], [d[1] for d in sensor_detection])
 
+
     def update(frame):
-      print("avant update: ",FastSlam.particles[0].x,FastSlam.particles[0].y)
+      #print("avant update: ",FastSlam.particles[0].x,FastSlam.particles[0].y)
       object_xy, detectors_detections, sensor_detections,object = next(object_and_sensors)
+      print("Coordonee x y : ",object_xy,"vitesse rad/norm",object.yaw_rate,object.realspeed)
+      print("poisiton ancinne et nvlle calculer",object.last,object.realspeed*object.dt*math.cos(object.yaw_rate)+object.last[0],object.realspeed*object.dt*math.sin(object.yaw_rate)+object.last[1])
       #print("true: ",sensor_detections)
-      print("Coordonee x y : ",object_xy,object.yaw_rate,object.realspeed,object.realspeed*object.dt*math.cos(object.yaw_rate),object.realspeed*object.dt*math.sin(object.yaw_rate))
       x_Est = FastSlam.fastslam(numCones,sensor_detections,[object.realspeed,object.yaw_rate],FastSlam.particles)
       object_x, object_y = x_Est[0][0], x_Est[1][0] # cicle blue
       #print(x_Est)
