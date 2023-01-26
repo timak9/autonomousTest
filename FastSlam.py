@@ -5,12 +5,12 @@ import numpy as np
 
 
 # Fast SLAM covariance
-Q = [np.diag([0.1, np.deg2rad(1.0)]) ** 2]
-R = np.diag([0.1, np.deg2rad(0.1)]) ** 2
+Q = [np.diag([0, np.deg2rad(0)]) ** 2]
+R = np.diag([0, np.deg2rad(0)]) ** 2
 
 #  Simulation parameter
-Q_sim = np.diag([0.3, np.deg2rad(2.0)]) ** 2
-R_sim = np.diag([0.5, np.deg2rad(10.0)]) ** 2
+Q_sim = np.diag([0, np.deg2rad(0)]) ** 2
+R_sim = np.diag([0, np.deg2rad(0.0)]) ** 2
 OFFSET_YAW_RATE_NOISE = 0.01
 
 DT = 0.1  # time tick [s]
@@ -44,8 +44,9 @@ class Particle:
 
 def fast_slam2(particles, u, z):
     particles = predict_particles(particles, u)
-    for i in range(len(Q)):
-        particles = update_with_observation(particles, z[i],i)
+    print(particles[0].x,particles[0].y,particles[0].yaw)
+    #for i in range(len(Q)):
+    #    particles = update_with_observation(particles, z[i],i)
     particles = resampling(particles)
 
     return particles
@@ -87,7 +88,7 @@ def predict_particles(particles, u):
         px[0, 0] = particles[i].x
         px[1, 0] = particles[i].y
         px[2, 0] = particles[i].yaw
-        ud = u + (np.random.randn(1, 2) @ R ** 0.5).T  # add noise #need to change to editable random
+        ud = u #+ (np.random.randn(1, 2) @ R ** 0.5).T  # add noise #need to change to editable random
         px = motion_model(px, ud)
         particles[i].x = px[0, 0]
         particles[i].y = px[1, 0]
@@ -222,15 +223,15 @@ def proposal_sampling(particle, z, Q_cov):
 
 
 def update_with_observation(particles, z, id):
-    print("range = ",len(z),z)
+    #print("range = ",len(z),z)
     for iz in range(len(z)):
         landmark_id = int(z[iz][2])
-        print("dans le for",landmark_id)
+        #print("dans le for",landmark_id)
 
         for ip in range(N_PARTICLE):
             # new landmark
-            if(ip == 0):
-                print(landmark_id)
+            #if(ip == 0):
+                #print(landmark_id)
             if abs(particles[ip].lm[landmark_id, 0]) <= 0.01:
                 particles[ip] = add_new_lm(particles[ip], z[iz], Q[id])
             # known landmark
@@ -355,9 +356,9 @@ particles = [Particle(n_landmark) for _ in range(N_PARTICLE)]
 
 
 def fastslam(n_landmark,z,ud,particles):
-    print(particles[0].lm)
+    #print(particles[0].lm)
     particles = fast_slam2(particles, ud, z)
-    print(particles[0].lm)
+    #print(particles[0].lm)
     xEst = calc_final_state(particles)
     return xEst
 

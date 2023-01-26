@@ -127,6 +127,7 @@ class Detector:
 class Object:
   def __init__(self, path, speed, reliability, detectors, sensors, dt):
     self.speed = speed
+    self.realspeed = speed
     self.reliability = reliability
     self.sensors = sensors
     self.detectors = detectors
@@ -156,7 +157,9 @@ class Object:
     travel = 0
     while (travel<distance):
       travel += self.follow_path()
-    self.yaw_rate = (self.orientation - pastAngle)/self.dt
+      pastAngle+=self.orientation
+    self.yaw_rate = (pastAngle)/self.dt
+    self.realspeed = travel/self.dt
     for sensor in self.sensors:
       sensor.detect_cones(inner_cones + outer_cones, self.position, self.orientation)
 
@@ -211,6 +214,11 @@ def animate(inner_cones, outer_cones, speed, detectors, sensors, path, dt):
 
       object_xy, detectors_detections, sensor_detections,object = next(object_and_sensors)
       object_x, object_y = object_xy[0],object_xy[1]
+      print("init: ",object_x,object_y,object.orientation)
+      for i in range(len(FastSlam.particles)):
+        FastSlam.particles[i].x = object_x
+        FastSlam.particles[i].y = object_y
+        FastSlam.particles[i].yaw = object.orientation
       object_scatter.set_offsets((object_x, object_y))
 
 
@@ -222,11 +230,11 @@ def animate(inner_cones, outer_cones, speed, detectors, sensors, path, dt):
         sensor_detection_scatters[i].set_data([d[0] for d in sensor_detection], [d[1] for d in sensor_detection])
 
     def update(frame):
-
-
+      print("avant update: ",FastSlam.particles[0].x,FastSlam.particles[0].y)
       object_xy, detectors_detections, sensor_detections,object = next(object_and_sensors)
-      print("true: ",sensor_detections)
-      x_Est = FastSlam.fastslam(numCones,sensor_detections,[object.speed,object.yaw_rate],FastSlam.particles)
+      #print("true: ",sensor_detections)
+      print("Coordonee x y : ",object_xy,object.yaw_rate,object.realspeed,object.realspeed*object.dt*math.cos(object.yaw_rate),object.realspeed*object.dt*math.sin(object.yaw_rate))
+      x_Est = FastSlam.fastslam(numCones,sensor_detections,[object.realspeed,object.yaw_rate],FastSlam.particles)
       object_x, object_y = x_Est[0][0], x_Est[1][0] # cicle blue
       #print(x_Est)
 
