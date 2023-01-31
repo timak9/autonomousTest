@@ -5,7 +5,7 @@ import numpy as np
 
 
 # Fast SLAM covariance
-Q = [np.diag([0, np.deg2rad(0)]) ** 2]
+Q = [np.diag([0.000001, np.deg2rad(0.000001)]) ** 2,np.diag([0.000001, np.deg2rad(0.000001)]) ** 2]
 R = np.diag([0, np.deg2rad(0)]) ** 2
 
 #  Simulation parameter
@@ -45,7 +45,8 @@ class Particle:
 def fast_slam2(particles, u, z):
     particles = predict_particles(particles, u)
     # a remettre print(particles[0].x,particles[0].y,particles[0].yaw)
-    #for i in range(len(Q)):
+    for i in range(len(Q)):
+        print(f"\n\n z[i] = {z[i]}\n\n")
     #    particles = update_with_observation(particles, z[i],i)
     particles = resampling(particles)
 
@@ -84,6 +85,7 @@ def calc_final_state(particles):
 
 def predict_particles(particles, u):
     print("u==",u)
+    print("partiles :", particles[0].x, particles[0].y)
     for i in range(N_PARTICLE):
         px = np.zeros((STATE_SIZE, 1))
         px[0, 0] = particles[i].x
@@ -148,6 +150,7 @@ def update_kf_with_cholesky(xf, Pf, v, Q_cov, Hf):
     S = Hf @ PHt + Q_cov
 
     S = (S + S.T) * 0.5
+    print(S)
     SChol = np.linalg.cholesky(S).T
     SCholInv = np.linalg.inv(SChol)
     W1 = PHt @ SCholInv
@@ -340,19 +343,24 @@ def motion_model(x, u):
     B = np.array([[DT * math.cos(x[2, 0]), 0],
                   [DT * math.sin(x[2, 0]), 0],
                   [0.0, DT]])
+    #print("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx iciiiiiiii",x)
+    xt = x.copy()
+    f = F @ x
+    b = B @ u
+    xt[0,0]= x[0,0]+b[0]
+    xt[1,0]=x[1,0]+b[1]
+    xt[2,0]=x[2,0]+b[2]
+    #print(F @ x,"x = ", xt, "fin")
+    xt[2, 0] = pi_2_pi(xt[2, 0])
 
-    x = F @ x + B @ u
-
-    x[2, 0] = pi_2_pi(x[2, 0])
-
-    return x
+    return xt
 
 
 def pi_2_pi(angle):
     return (angle + math.pi) % (2 * math.pi) - math.pi
 
 
-n_landmark = 40
+n_landmark = 200
 #xEst = np.zeros((STATE_SIZE, 1))  # SLAM estimation
 particles = [Particle(n_landmark) for _ in range(N_PARTICLE)]
 

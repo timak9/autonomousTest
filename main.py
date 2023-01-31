@@ -1,5 +1,6 @@
 from shapely.geometry import Polygon,LineString, Point,LinearRing
 import random
+import numpy as np
 import math
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
@@ -80,20 +81,23 @@ def add_cones(points, distance,numCones):
 #class sensor, sensor it is the detector of the cones, not the position of the object!
 #get in order: the angle of the view, the fiability, the orientation in radian, and the distance of vision
 class Sensor:
-  def __init__(self, field_of_view, reliability, orientation, distance_vision):
+  def __init__(self, field_of_view, reliability_distance, reliability_angle,orientation, distance_vision):
     self.field_of_view = field_of_view
-    self.reliability = reliability
+    self.reliability_distance = reliability_distance
+    self.reliability_angle = reliability_angle
     self.orientation = orientation
     self.distance_vision = distance_vision
 
 #return the cones detected by the sensor, with random aproximation
   def detect_cones(self, cones, position, car_orientation):
-    detect_cones = []
+    detect_cones_coord = []
+    detect_cones_range = []
     for i, cone in enumerate(cones):
       dx = cone[0] - position[0]
       dy = cone[1] - position[1]
-      distance = math.sqrt(dx ** 2 + dy ** 2)
-      angle = math.atan2(dy, dx) - self.orientation - car_orientation
+      distance = math.sqrt(dx ** 2 + dy ** 2) + np.random.normal(0,self.reliability_distance**(1/2))
+      angle = math.atan2(dy, dx) - self.orientation - car_orientation + np.random.normal(0,self.reliability_angle**(1/2))
+      print(f"\n\n\ndistance: {distance,math.sqrt(dx ** 2 + dy ** 2)}, angle: {angle,math.atan2(dy, dx) - self.orientation - car_orientation}, id: {i}\n\n")
 
       if angle < -math.pi:
         angle += 2 * math.pi
@@ -101,10 +105,11 @@ class Sensor:
         angle -= 2 * math.pi
 
       if abs(angle) < self.field_of_view / 2 and distance < self.distance_vision:
-        cone_x = random.gauss(0,self.reliability**(1/2)) + cone[0]
-        cone_y = cone[1] + random.normalvariate(0,self.reliability**(1/2))
-        detect_cones.append((cone_x, cone_y, i))
-    return detect_cones
+        cone_x = math.cos(angle+self.orientation+car_orientation)*distance + position[0]
+        cone_y = math.sin(angle+self.orientation+car_orientation)*distance + position[1]
+        detect_cones_coord.append((cone_x, cone_y, i))
+        detect_cones_range.append((distance, angle, i))
+    return detect_cones_coord,detect_cones_range
 
 
 
@@ -127,42 +132,63 @@ class Detector:
 class Object:
   def __init__(self, path, speed, reliability, detectors, sensors, dt):
     self.speed = speed
-    self.realspeed = speed
     self.reliability = reliability
     self.sensors = sensors
     self.detectors = detectors
     self.path = path
-    self.path_index = 0
-    self.position = path[0]
+    self.path_index = 1
+    self.position = path[1]
     self.dt = dt
-    self.yaw_rate = 0
+
+    old_xy = path[self.path_index-1]
+    next_xy = path[self.path_index+1]
+
+    dx = self.position[0] - old_xy[0]
+    dy = self.position[1] - old_xy[1]
+    self.orientation = math.atan2(dy, dx)
+    self.realspeed = (dx**2+dy**2)**(1/2)
+
+    dx = next_xy[0] - self.position[0]
+    dy = next_xy[1] - self.position[1]
+
+    self.yaw_rate = (math.atan2(dy, dx)-self.orientation)/self.dt
     self.last = [0,0,0]
 
-    dx = self.path[self.path_index][0] - self.path[self.path_index - 1][0]
-    dy = self.path[self.path_index][1] - self.path[self.path_index - 1][1]
-    self.orientation = math.atan2(dy, dx)
+
 
   def follow_path(self):
     self.path_index += 1
     if self.path_index == len(self.path):
       self.path_index = 0
-    dx = self.path[self.path_index][0] - self.path[self.path_index - 1][0]
-    dy = self.path[self.path_index][1] - self.path[self.path_index - 1][1]
+    old_xy = self.position
+    if self.path_index==len(self.path)-1:
+      next_xy = self.path[0]
+    else:
+      next_xy = self.path[self.path_index+1]
+
     self.position = self.path[self.path_index]
+
+    dx = self.position[0] - old_xy[0]
+    dy = self.position[1] - old_xy[1]
     self.orientation = math.atan2(dy, dx)
+    self.realspeed = (dx ** 2 + dy ** 2) ** (1 / 2)
+
+    dx = next_xy[0] - self.position[0]
+    dy = next_xy[1] - self.position[1]
+
+    self.yaw_rate = (math.atan2(dy, dx) - self.orientation) / self.dt
     return (dx**2+dy**2)**(1/2)
 
   def move(self, inner_cones, outer_cones):
     self.last = list(self.position[:])+[self.orientation]
     pastAngle = self.orientation
     travel = self.follow_path()
-    self.yaw_rate = (self.orientation-self.last[2])/self.dt
+    #self.yaw_rate = (self.orientation-self.last[2])/self.dt
     self.realspeed = travel/self.dt
-    for sensor in self.sensors:
-      sensor.detect_cones(inner_cones + outer_cones, self.position, self.orientation)
+'''for sensor in self.sensors:
+      sensor.detect_cones(inner_cones + outer_cones, self.position, self.orientation)'''
 
-
-  def oldmove(self, inner_cones, outer_cones):
+'''def oldmove(self, inner_cones, outer_cones):
     self.last = list(self.position[:])+[self.orientation]
     pastAngle = self.orientation
     distance = self.speed * self.dt
@@ -175,7 +201,7 @@ class Object:
     self.yaw_rate = (math.atan2(dy, dx)/self.dt + math.pi) % (2 * math.pi) - math.pi
     self.realspeed = (dx**2+dy**2)**(1/2)/self.dt
     for sensor in self.sensors:
-      sensor.detect_cones(inner_cones + outer_cones, self.position, self.orientation)
+      sensor.detect_cones(inner_cones + outer_cones, self.position, self.orientation)'''
 
 
 
@@ -185,12 +211,13 @@ def create_object_and_move(inner_cones, outer_cones, speed,detectors, sensors, p
   while True:
     object.move(inner_cones, outer_cones)
     coordonateDetector = [[] for _ in range(len(detectors))]
-    detected_cones = [[] for _ in range(len(sensors))]
+    detected_cones_coord = [[] for _ in range(len(sensors))]
+    detected_cones_range = [[] for _ in range(len(sensors))]
     for count, detector in enumerate(detectors):
       coordonateDetector[count] = detector.position(object.position,object.orientation)
     for i, sensor in enumerate(sensors):
-      detected_cones[i] = sensor.detect_cones(inner_cones + outer_cones, object.position, object.orientation)
-    yield [[object.position[0],object.position[1],object.orientation],coordonateDetector, detected_cones,object]
+      detected_cones_coord[i],detected_cones_range[i] = sensor.detect_cones(inner_cones + outer_cones, object.position, object.orientation)
+    yield [[object.position[0],object.position[1],object.orientation],coordonateDetector, detected_cones_coord,detected_cones_range,object]
 
 
 
@@ -225,7 +252,7 @@ def animate(inner_cones, outer_cones, speed, detectors, sensors, path, dt):
     def init():
 
 
-      object_xy, detectors_detections, sensor_detections,object = next(object_and_sensors)
+      object_xy, detectors_detections, sensor_detections_coord,sensor_detection_range,object = next(object_and_sensors)
       object_x, object_y = object_xy[0],object_xy[1]
       print("init: ",object_x,object_y,object.orientation)
       for i in range(len(FastSlam.particles)):
@@ -239,31 +266,30 @@ def animate(inner_cones, outer_cones, speed, detectors, sensors, path, dt):
         diffPosdetec.append([detector_detection[0]-object_x])
         detectors_scatters[i].set_data(detector_detection[0], detector_detection[1])
 
-      for i, sensor_detection in enumerate(sensor_detections):
+      for i, sensor_detection in enumerate(sensor_detections_coord):
         sensor_detection_scatters[i].set_data([d[0] for d in sensor_detection], [d[1] for d in sensor_detection])
+      x_Est = FastSlam.fastslam(numCones,sensor_detection_range,[object.realspeed,object.yaw_rate],FastSlam.particles)
 
 
     def update(frame):
       #print("avant update: ",FastSlam.particles[0].x,FastSlam.particles[0].y)
-      object_xy, detectors_detections, sensor_detections,object = next(object_and_sensors)
+      object_xy, detectors_detections, sensor_detections_coord,sensor_detection_range,object = next(object_and_sensors)
       print("Coordonee x y : ",object_xy,"vitesse rad/norm",object.yaw_rate,object.realspeed)
       print("poisiton ancinne et nvlle calculer",object.last,object.realspeed*object.dt*math.cos(object.yaw_rate)+object.last[0],object.realspeed*object.dt*math.sin(object.yaw_rate)+object.last[1])
       #print("true: ",sensor_detections)
-      x_Est = FastSlam.fastslam(numCones,sensor_detections,[object.realspeed,object.yaw_rate],FastSlam.particles)
+      x_Est = FastSlam.fastslam(numCones,sensor_detection_range,[object.realspeed,object.yaw_rate],FastSlam.particles)
       object_x, object_y = x_Est[0][0], x_Est[1][0] # cicle blue
+      #object_x, object_y = object_xy[0], object_xy[1]
       #print(x_Est)
 
 
-
-
-
-      sensorDistanceObject = []
-      for count,sensor in enumerate(sensor_detections):
+      '''sensorDistanceObject = []
+      for count,sensor in enumerate(sensor_detections_coord):
         if sensor:
           sensorDistanceObject.append([math.sqrt((-sensor[0][0])**2 + (object_y-sensor[0][1])**2),math.atan2(object_y - sensor[0][1], object_x - sensor[0][0]),sensor[0][2]])
         else:
           sensorDistanceObject.append([]) #the sensor same we get (distance fromthe auto, the alpha and the id of the cone)
-
+'''
       object_scatter.set_offsets((object_x, object_y)) #plot the object, here to modify
 
       for i, detector_detection in enumerate(detectors_detections):
@@ -271,7 +297,7 @@ def animate(inner_cones, outer_cones, speed, detectors, sensors, path, dt):
         #print(f"captor number {i}: {sum(diffPosdetec[i]) / len(diffPosdetec)}, detpos: {detector_detection[0]}, pos: {object_x}")
         detectors_scatters[i].set_data(detector_detection[0], detector_detection[1])
 
-      for i, sensor_detection in enumerate(sensor_detections):
+      for i, sensor_detection in enumerate(sensor_detections_coord):
         sensor_detection_scatters[i].set_data([d[0] for d in sensor_detection], [d[1] for d in sensor_detection])
 
     anim = FuncAnimation(fig, update, frames=200, repeat=True,init_func=init())
@@ -284,16 +310,17 @@ def animate(inner_cones, outer_cones, speed, detectors, sensors, path, dt):
 
 #points = lenths minimum, lenght maximum, number of "points" of the circuit (more we have, more HD it is)
 #points, cones_inside,cones_outside = points,distance of the cones to right/left, numberofCones
-numCones = 20
+numCones = 50
 points = create_random_circuit(20,80,130)
 points, cones_inside, cones_outside = add_cones(points, 2.5 ,numCones)
 
 
 #to create a sensor, the angle of the vision, the fiability (number of meter or radian of potential error),
 # the direction of the sensor in radian, and the distance it 'see"
+#field_of_view, reliability_distance, reliability_angle,orientation, distance_vision
 
-sensor1 = Sensor(math.radians(90),1,math.radians(270),15)
-sensor2 = Sensor(math.radians(90),1,math.radians(90),15)
+sensor1 = Sensor(math.radians(90),0,0,math.radians(270),15)
+sensor2 = Sensor(math.radians(90),0,0,math.radians(90),15)
 
 
 
