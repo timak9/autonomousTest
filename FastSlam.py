@@ -13,13 +13,13 @@ Q_sim = np.diag([0, np.deg2rad(0)]) ** 2
 R_sim = np.diag([0, np.deg2rad(0.0)]) ** 2
 OFFSET_YAW_RATE_NOISE = 0.01
 
-DT = 0.1  # time tick [s]
+DT = 1  # time tick [s]
 SIM_TIME = 10.0  # simulation time [s]
 MAX_RANGE = 10.0  # maximum observation range
 M_DIST_TH = 2.0  # Threshold of Mahalanobis distance for data association.
 STATE_SIZE = 3  # State size [x,y,yaw]
 LM_SIZE = 2  # LM state size [x,y]
-N_PARTICLE = 100  # number of particle
+N_PARTICLE = 1  # number of particle
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
 
 INITIALISE = False
@@ -83,7 +83,7 @@ def calc_final_state(particles):
 
 
 def predict_particles(particles, u):
-    print("u==",u)
+    #print("u==",u)
     for i in range(N_PARTICLE):
         px = np.zeros((STATE_SIZE, 1))
         px[0, 0] = particles[i].x
@@ -94,7 +94,7 @@ def predict_particles(particles, u):
         particles[i].x = px[0, 0]
         particles[i].y = px[1, 0]
         particles[i].yaw = px[2, 0]
-    print("partiles :",particles[0].x,particles[0].y)
+    #print("partiles :",particles[0].x,particles[0].y)
 
     return particles
 
@@ -367,7 +367,7 @@ def fastslam(n_landmark,z,ud,particles):
 
 
 def main():
-    print(__file__ + " start!!")
+    #print(__file__ + " start!!")
 
     time = 0.0
 
@@ -400,7 +400,7 @@ def main():
         u = calc_input(time)
 
         xTrue, z, xDR, ud = observation(xTrue, xDR, u, RFID)
-        print(z)
+        #print(z)
         #z cest la position observer donc avec des erreurs,
         '''xTrue : Il s'agit de la position réelle du robot dans l'environnement, c'est-à-dire sa position x, y et son orientation yaw.
 

@@ -2,6 +2,14 @@ import random
 import numpy as np
 
 
-a= np.cos(-2.405281875404687+ 2.0125827937059615)*104.63109228376135*0.1
 
-print(15.03077425874306-a)
+randomList = np.random.uniform(16,100,1000)
+randomList2 = np.random.normal(16,100,1000)
+
+randomList.sort()
+randomList2.sort()
+
+print(randomList,randomList.mean())
+print(randomList2,randomList2.mean())
+
+

@@ -4,6 +4,7 @@ import math
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import FastSlam
+import numpy as np
 
 
 #function to generate a circle
@@ -101,8 +102,8 @@ class Sensor:
         angle -= 2 * math.pi
 
       if abs(angle) < self.field_of_view / 2 and distance < self.distance_vision:
-        cone_x = random.gauss(0,self.reliability**(1/2)) + cone[0]
-        cone_y = cone[1] + random.normalvariate(0,self.reliability**(1/2))
+        cone_x = np.random.normal(0,self.reliability**(1/2)) + cone[0]
+        cone_y = cone[1] + np.random.normal(0,self.reliability**(1/2))
         detect_cones.append((cone_x, cone_y, i))
     return detect_cones
 
@@ -118,9 +119,9 @@ class Detector:
 
 #return the position and the orientation detected by the detector (with "error")
   def position(self,objectposition,orientation):
-    detectorPositionX = random.gauss(0,math.sqrt(self.reliabilityPos)) + objectposition[0]
-    detectorPositionY = random.gauss(0, math.sqrt(self.reliabilityPos)) + objectposition[1]
-    detectorOrientation = random.gauss(0, math.sqrt(self.reliabilityOri)) + orientation
+    detectorPositionX = np.random.normal(0,math.sqrt(self.reliabilityPos)) + objectposition[0]
+    detectorPositionY = np.random.normal(0, math.sqrt(self.reliabilityPos)) + objectposition[1]
+    detectorOrientation = np.random.normal(0, math.sqrt(self.reliabilityOri)) + orientation
     return (detectorPositionX,detectorPositionY,detectorOrientation)
 
 
@@ -138,8 +139,8 @@ class Object:
     self.yaw_rate = 0
     self.last = [0,0,0]
 
-    dx = self.path[self.path_index][0] - self.path[self.path_index - 1][0]
-    dy = self.path[self.path_index][1] - self.path[self.path_index - 1][1]
+    dx = self.path[(self.path_index+1)%len(self.path)][0] - self.path[self.path_index][0]
+    dy = self.path[(self.path_index+1)%len(self.path)][1] - self.path[self.path_index][1]
     self.orientation = math.atan2(dy, dx)
 
   def follow_path(self):
@@ -176,6 +177,8 @@ class Object:
     self.realspeed = (dx**2+dy**2)**(1/2)/self.dt
     for sensor in self.sensors:
       sensor.detect_cones(inner_cones + outer_cones, self.position, self.orientation)
+
+
 
 
 
@@ -251,6 +254,7 @@ def animate(inner_cones, outer_cones, speed, detectors, sensors, path, dt):
       #print("true: ",sensor_detections)
       x_Est = FastSlam.fastslam(numCones,sensor_detections,[object.realspeed,object.yaw_rate],FastSlam.particles)
       object_x, object_y = x_Est[0][0], x_Est[1][0] # cicle blue
+      #object_x,object_y = object_xy[0],object_xy[1]    #a enlever
       #print(x_Est)
 
 
@@ -269,7 +273,7 @@ def animate(inner_cones, outer_cones, speed, detectors, sensors, path, dt):
       for i, detector_detection in enumerate(detectors_detections):
         diffPosdetec[i].append(detector_detection[0] - object_x)
         #print(f"captor number {i}: {sum(diffPosdetec[i]) / len(diffPosdetec)}, detpos: {detector_detection[0]}, pos: {object_x}")
-        detectors_scatters[i].set_data(detector_detection[0], detector_detection[1])
+        #detectors_scatters[i].set_data(detector_detection[0], detector_detection[1]) # a remettre affiche les detecteur
 
       for i, sensor_detection in enumerate(sensor_detections):
         sensor_detection_scatters[i].set_data([d[0] for d in sensor_detection], [d[1] for d in sensor_detection])
@@ -284,7 +288,7 @@ def animate(inner_cones, outer_cones, speed, detectors, sensors, path, dt):
 
 #points = lenths minimum, lenght maximum, number of "points" of the circuit (more we have, more HD it is)
 #points, cones_inside,cones_outside = points,distance of the cones to right/left, numberofCones
-numCones = 20
+numCones = 100
 points = create_random_circuit(20,80,130)
 points, cones_inside, cones_outside = add_cones(points, 2.5 ,numCones)
 
@@ -292,8 +296,8 @@ points, cones_inside, cones_outside = add_cones(points, 2.5 ,numCones)
 #to create a sensor, the angle of the vision, the fiability (number of meter or radian of potential error),
 # the direction of the sensor in radian, and the distance it 'see"
 
-sensor1 = Sensor(math.radians(90),1,math.radians(270),15)
-sensor2 = Sensor(math.radians(90),1,math.radians(90),15)
+sensor1 = Sensor(math.radians(90),0,math.radians(270),15)
+sensor2 = Sensor(math.radians(90),0,math.radians(90),15)
 
 
 
@@ -301,16 +305,16 @@ sensor2 = Sensor(math.radians(90),1,math.radians(90),15)
 
 #to create a detector, fiability of the position and fiability of the orientation
 # (number of meter or radian of potential error),
-detector1 = Detector(1,math.radians(1))
-detector2 = Detector(5,math.radians(10))
+detector1 = Detector(0,math.radians(1))
+detector2 = Detector(0,math.radians(10))
 
 
 
 sensors = [sensor1,sensor2]
 detectors = [detector1,detector2]
 speed = 100
-reliability = 0.1
-dt = 0.1
+reliability = 0
+dt = 1
 
 #to create an object, get the list of the cones, the speed, the accuracy of the position, list of sensors, and the path
 #return yield of the position and the cones detected by all the sensor
